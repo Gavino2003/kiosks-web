@@ -19,7 +19,7 @@
 
 <div class="page" style="padding-top:0">
     <div class="store-grid">
-        <a th:each="store : ${stores}" th:href="@{/loja/{id}(id=${store.idStore})}" class="store-card">
+        <a th:each="store : ${stores}" th:href="@{/loja/{id}(id=${store.id})}" class="store-card">
             <div class="store-icon"
                  th:text="${store.storeType == 'EYEWEAR' ? '👓' : store.storeType == 'MAKEUP' ? '💄' : '💍'}">👓</div>
             <div>

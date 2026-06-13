@@ -26,7 +26,7 @@
         <div class="conf-total" th:text="${#numbers.formatDecimal(total,1,'COMMA',2,'POINT')} + ' €'">0,00 €</div>
         <div class="conf-store" th:text="${store.storeName}">Loja</div>
 
-        <a th:href="@{/loja/{id}(id=${store.idStore})}" class="btn-home">Nova compra</a>
+        <a th:href="@{/loja/{id}(id=${store.id})}" class="btn-home">Nova compra</a>
     </div>
 </div>
 

@@ -5,79 +5,54 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import pt.ipvc.kiosks.dal.entities.Category;
-import pt.ipvc.kiosks.dal.entities.ProductStore;
-import pt.ipvc.kiosks.dal.entities.Store;
-import pt.ipvc.kiosks.dal.repository.CategoryRepository;
-import pt.ipvc.kiosks.dal.repository.ProductStoreRepository;
-import pt.ipvc.kiosks.dal.repository.StoreRepository;
+import pt.ipvc.kiosks.web.client.CoreApiClient;
+import pt.ipvc.kiosks.web.dto.CategoryDto;
+import pt.ipvc.kiosks.web.dto.ProductDto;
+import pt.ipvc.kiosks.web.dto.StoreDto;
 import pt.ipvc.kiosks.web.model.Cart;
 import pt.ipvc.kiosks.web.model.CartItem;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Controller
 @RequestMapping("/loja/{storeId}")
 public class CatalogueController {
 
-    @Autowired private StoreRepository        storeRepository;
-    @Autowired private CategoryRepository     categoryRepository;
-    @Autowired private ProductStoreRepository productStoreRepository;
+    @Autowired private CoreApiClient api;
 
     @GetMapping
     public String catalogue(@PathVariable Long storeId,
                              @RequestParam(required = false) Long categoria,
-                             @RequestParam(required = false) String q,
                              @RequestParam(required = false) Long added,
                              HttpSession session,
                              Model model) {
 
-        Store store = storeRepository.findById(storeId).orElse(null);
-        if (store == null || !store.getActive()) return "redirect:/";
+        StoreDto store = api.getStore(storeId);
+        if (store == null || !Boolean.TRUE.equals(store.active)) return "redirect:/";
 
         session.setAttribute("currentStoreId", storeId);
 
-        List<Category> categories = categoryRepository.findByStoreIdStoreAndActiveTrue(storeId);
-        List<ProductStore> products = productStoreRepository.findByStoreIdStoreOrderByProductProductName(storeId)
-                .stream().filter(ps -> ps.getActive() && ps.getProduct().getActive()).toList();
-
-        // filtro por categoria
-        if (categoria != null) {
-            final Long fc = categoria;
-            products = products.stream()
-                    .filter(ps -> ps.getProduct().getCategory() != null
-                            && ps.getProduct().getCategory().getIdCategory().equals(fc))
-                    .toList();
-        }
-
-        // filtro por pesquisa
-        if (q != null && !q.isBlank()) {
-            String term = q.trim().toLowerCase();
-            products = products.stream()
-                    .filter(ps -> ps.getProduct().getProductName().toLowerCase().contains(term)
-                            || (ps.getProduct().getSku() != null && ps.getProduct().getSku().toLowerCase().contains(term)))
-                    .toList();
-        }
-
-        Cart cart = getCart(session);
+        List<StoreDto>    allStores  = api.getActiveStores();
+        List<CategoryDto> categories = api.getCategoriesByStore(storeId);
+        List<ProductDto>  products   = api.getProducts(storeId, categoria);
 
         String selectedCategoryName = null;
         if (categoria != null) {
             selectedCategoryName = categories.stream()
-                    .filter(c -> c.getIdCategory().equals(categoria))
-                    .map(c -> c.getCategoryName())
+                    .filter(c -> c.id.equals(categoria))
+                    .map(c -> c.categoryName)
                     .findFirst().orElse(null);
         }
 
-        model.addAttribute("store", store);
-        model.addAttribute("allStores", storeRepository.findByActiveTrue());
-        model.addAttribute("categories", categories);
-        model.addAttribute("products", products);
-        model.addAttribute("selectedCategory", categoria);
+        model.addAttribute("store",                store);
+        model.addAttribute("allStores",            allStores);
+        model.addAttribute("categories",           categories);
+        model.addAttribute("products",             products);
+        model.addAttribute("selectedCategory",     categoria);
         model.addAttribute("selectedCategoryName", selectedCategoryName);
-        model.addAttribute("q", q);
-        model.addAttribute("cart", cart);
-        model.addAttribute("addedProductId", added);
+        model.addAttribute("cart",                 getCart(session));
+        model.addAttribute("addedProductId",       added);
         return "catalogue";
     }
 
@@ -86,20 +61,16 @@ public class CatalogueController {
                              @RequestParam Long productId,
                              @RequestParam(defaultValue = "1") int qty,
                              @RequestParam(required = false) Long categoria,
+                             @RequestParam(required = false) String productName,
+                             @RequestParam(required = false) String sku,
+                             @RequestParam(required = false) BigDecimal price,
                              HttpSession session) {
 
-        productStoreRepository.findById(
-                new pt.ipvc.kiosks.dal.entities.ProductStoreId(productId, storeId))
-                .ifPresent(ps -> {
-                    Cart cart = getCart(session);
-                    cart.add(new CartItem(
-                            ps.getProduct().getIdProduct(),
-                            ps.getProduct().getProductName(),
-                            ps.getProduct().getSku(),
-                            ps.getProduct().getPrice(),
-                            qty));
-                    session.setAttribute("cart", cart);
-                });
+        if (productName != null && price != null) {
+            Cart cart = getCart(session);
+            cart.add(new CartItem(productId, productName, sku, price, qty));
+            session.setAttribute("cart", cart);
+        }
 
         String redirect = "redirect:/loja/" + storeId;
         if (categoria != null) redirect += "?categoria=" + categoria;
@@ -117,11 +88,11 @@ public class CatalogueController {
 
     @GetMapping("/carrinho")
     public String cart(@PathVariable Long storeId, HttpSession session, Model model) {
-        Store store = storeRepository.findById(storeId).orElse(null);
+        StoreDto store = api.getStore(storeId);
         if (store == null) return "redirect:/";
-        model.addAttribute("store", store);
-        model.addAttribute("allStores", storeRepository.findByActiveTrue());
-        model.addAttribute("cart", getCart(session));
+        model.addAttribute("store",     store);
+        model.addAttribute("allStores", api.getActiveStores());
+        model.addAttribute("cart",      getCart(session));
         return "cart";
     }
 
