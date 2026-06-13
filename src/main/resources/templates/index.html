@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Kiosks — Escolha a sua loja</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<header class="topbar">
+    <span class="topbar-brand">🛍 Kiosks</span>
+</header>
+
+<div class="hero">
+    <h1>Bem-vindo</h1>
+    <p>Escolha a loja onde se encontra para começar a sua compra.</p>
+</div>
+
+<div class="page" style="padding-top:0">
+    <div class="store-grid">
+        <a th:each="store : ${stores}" th:href="@{/loja/{id}(id=${store.idStore})}" class="store-card">
+            <div class="store-icon"
+                 th:text="${store.storeType == 'EYEWEAR' ? '👓' : store.storeType == 'MAKEUP' ? '💄' : '💍'}">👓</div>
+            <div>
+                <span class="tag"
+                      th:classappend="${store.storeType == 'EYEWEAR' ? 'tag-eyewear' : store.storeType == 'MAKEUP' ? 'tag-makeup' : 'tag-jewellery'}"
+                      th:text="${store.storeType}">TIPO</span>
+            </div>
+            <div class="store-name" th:text="${store.storeName}">Nome da Loja</div>
+            <div class="store-city" th:text="${store.city}">Cidade</div>
+            <div class="store-cta">Entrar na loja →</div>
+        </a>
+    </div>
+</div>
+
+</body>
+</html>

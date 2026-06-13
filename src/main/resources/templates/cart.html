@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Carrinho</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<header class="topbar">
+    <a th:href="@{/loja/{id}(id=${store.idStore})}" class="btn-back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <select class="store-switcher" onchange="location.href='/loja/'+this.value">
+        <option th:each="s : ${allStores}" th:value="${s.idStore}"
+                th:text="${s.storeName}" th:selected="${s.idStore == store.idStore}">Loja</option>
+    </select>
+</header>
+
+<div class="page">
+
+    <div th:if="${error != null}" class="alert-error" th:text="${error}"></div>
+
+    <div th:if="${cart.empty}" class="cart-empty">
+        <div class="icon">○</div>
+        <p>O seu carrinho está vazio</p>
+        <a th:href="@{/loja/{id}(id=${store.idStore})}" class="btn-shop">Ver produtos</a>
+    </div>
+
+    <div th:if="${!cart.empty}">
+        <div class="page-heading"><h1>Carrinho</h1></div>
+
+        <div class="cart-wrapper">
+            <table class="cart-table">
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>Qtd.</th>
+                        <th>Unit.</th>
+                        <th>Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="item : ${cart.items}">
+                        <td>
+                            <div class="item-name" th:text="${item.productName}">Nome</div>
+                            <div class="item-sku" th:if="${item.sku != null}" th:text="${item.sku}">SKU</div>
+                        </td>
+                        <td><span class="qty-badge" th:text="${item.quantity}">1</span></td>
+                        <td th:text="${#numbers.formatDecimal(item.unitPrice,1,'COMMA',2,'POINT')} + ' €'">0,00 €</td>
+                        <td style="font-weight:700;white-space:nowrap" th:text="${#numbers.formatDecimal(item.lineTotal,1,'COMMA',2,'POINT')} + ' €'">0,00 €</td>
+                        <td>
+                            <form th:action="@{/loja/{id}/carrinho/remover(id=${store.idStore})}" method="post">
+                                <input type="hidden" name="productId" th:value="${item.productId}"/>
+                                <button type="submit" class="btn-remove">✕</button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Barra de resumo + checkout -->
+            <div class="cart-summary-bar">
+                <div class="cart-summary-lines">
+                    <div class="cart-line" th:each="item : ${cart.items}">
+                        <span class="lname" th:text="${item.productName}">Nome</span>
+                        <span class="lprice" th:text="${#numbers.formatDecimal(item.lineTotal,1,'COMMA',2,'POINT')} + ' €'">0,00 €</span>
+                    </div>
+                </div>
+                <div class="cart-checkout-block">
+                    <div class="cart-total-val" th:text="${#numbers.formatDecimal(cart.total,1,'COMMA',2,'POINT')} + ' €'">0,00 €</div>
+                    <button class="btn-checkout" onclick="openPayment()">Confirmar encomenda</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de pagamento -->
+<div class="payment-overlay" id="paymentOverlay" th:if="${!cart.empty}">
+    <div class="payment-modal">
+        <button class="close-btn" onclick="closePayment()">✕</button>
+        <h2>Pagamento</h2>
+
+        <div class="pay-method-grid">
+            <button class="pay-method" id="pm-mbway" onclick="selectMethod('mbway')">
+                <span class="pay-method-icon">📱</span>
+                MB Way
+            </button>
+            <button class="pay-method" id="pm-card" onclick="selectMethod('card')">
+                <span class="pay-method-icon">💳</span>
+                Cartão
+            </button>
+            <button class="pay-method" id="pm-ref" onclick="selectMethod('ref')">
+                <span class="pay-method-icon">🏧</span>
+                Referência MB
+            </button>
+            <button class="pay-method" id="pm-cash" onclick="selectMethod('cash')">
+                <span class="pay-method-icon">💶</span>
+                Numerário
+            </button>
+        </div>
+
+        <!-- Campos cartão -->
+        <div class="pay-card-fields" id="cardFields">
+            <div class="pay-input-group">
+                <label>Número do cartão</label>
+                <input type="text" placeholder="0000 0000 0000 0000" maxlength="19" oninput="fmtCard(this)"/>
+            </div>
+            <div class="pay-input-row">
+                <div class="pay-input-group">
+                    <label>Validade</label>
+                    <input type="text" placeholder="MM/AA" maxlength="5" oninput="fmtExp(this)"/>
+                </div>
+                <div class="pay-input-group">
+                    <label>CVV</label>
+                    <input type="text" placeholder="000" maxlength="3"/>
+                </div>
+            </div>
+        </div>
+
+        <!-- Campos MB Way -->
+        <div class="pay-card-fields" id="mbwayFields">
+            <div class="pay-input-group">
+                <label>Telemóvel</label>
+                <input type="tel" placeholder="9XX XXX XXX" maxlength="9"/>
+            </div>
+        </div>
+
+        <form th:action="@{/loja/{id}/checkout(id=${store.idStore})}" method="post" id="checkoutForm">
+            <button type="button" class="btn-pay" id="btnPay" onclick="processPay()" disabled>
+                Pagar
+            </button>
+        </form>
+        <p class="pay-total-line">
+            Total: <strong th:text="${#numbers.formatDecimal(cart.total,1,'COMMA',2,'POINT')} + ' €'">0,00 €</strong>
+        </p>
+    </div>
+</div>
+
+<script>
+function openPayment()  { document.getElementById('paymentOverlay').classList.add('open'); }
+function closePayment() { document.getElementById('paymentOverlay').classList.remove('open'); }
+
+function selectMethod(m) {
+    ['mbway','card','ref','cash'].forEach(function(id) {
+        document.getElementById('pm-'+id).classList.remove('selected');
+    });
+    document.getElementById('pm-'+m).classList.add('selected');
+
+    document.getElementById('cardFields').classList.remove('visible');
+    document.getElementById('mbwayFields').classList.remove('visible');
+    if (m === 'card')  document.getElementById('cardFields').classList.add('visible');
+    if (m === 'mbway') document.getElementById('mbwayFields').classList.add('visible');
+
+    // numerário e referência MB: pagar directo
+    document.getElementById('btnPay').disabled = false;
+
+    if (m === 'cash') {
+        document.getElementById('btnPay').textContent = 'Confirmar (paga no balcão)';
+    } else if (m === 'ref') {
+        document.getElementById('btnPay').textContent = 'Gerar referência';
+    } else {
+        document.getElementById('btnPay').textContent = 'Pagar';
+    }
+}
+
+function processPay() {
+    var btn = document.getElementById('btnPay');
+    btn.textContent = 'A processar…';
+    btn.disabled = true;
+    setTimeout(function() {
+        document.getElementById('checkoutForm').submit();
+    }, 1400);
+}
+
+function fmtCard(el) {
+    var v = el.value.replace(/\D/g,'').slice(0,16);
+    el.value = v.replace(/(.{4})/g,'$1 ').trim();
+}
+function fmtExp(el) {
+    var v = el.value.replace(/\D/g,'');
+    if (v.length >= 2) v = v.slice(0,2) + '/' + v.slice(2,4);
+    el.value = v;
+}
+
+// fechar ao clicar fora
+document.getElementById('paymentOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closePayment();
+});
+</script>
+
+</body>
+</html>
