@@ -22,25 +22,36 @@ public class CoreApiClient {
     // ── Stores ──────────────────────────────────────────────────────────────
 
     public List<StoreDto> getActiveStores() {
-        return getList("/api/stores?active=true", StoreDto.class);
+        ResponseEntity<List<StoreDto>> r = rest.exchange(
+                baseUrl + "/api/stores?active=true", HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<StoreDto>>() {});
+        return r.getBody() != null ? r.getBody() : List.of();
     }
 
     public StoreDto getStore(Long id) {
-        return rest.getForObject(baseUrl + "/api/stores/" + id, StoreDto.class);
+        try { return rest.getForObject(baseUrl + "/api/stores/" + id, StoreDto.class); }
+        catch (Exception e) { return null; }
     }
 
     // ── Categories ──────────────────────────────────────────────────────────
 
     public List<CategoryDto> getCategoriesByStore(Long storeId) {
-        return getList("/api/categories?storeId=" + storeId + "&active=true", CategoryDto.class);
+        ResponseEntity<List<CategoryDto>> r = rest.exchange(
+                baseUrl + "/api/categories?storeId=" + storeId + "&active=true",
+                HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<CategoryDto>>() {});
+        return r.getBody() != null ? r.getBody() : List.of();
     }
 
     // ── Products ─────────────────────────────────────────────────────────────
 
     public List<ProductDto> getProducts(Long storeId, Long categoryId) {
-        String url = "/api/products?storeId=" + storeId;
+        String url = baseUrl + "/api/products?storeId=" + storeId;
         if (categoryId != null) url += "&categoryId=" + categoryId;
-        return getList(url, ProductDto.class);
+        ResponseEntity<List<ProductDto>> r = rest.exchange(
+                url, HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<ProductDto>>() {});
+        return r.getBody() != null ? r.getBody() : List.of();
     }
 
     // ── Orders ───────────────────────────────────────────────────────────────
@@ -52,16 +63,11 @@ public class CoreApiClient {
 
     // ── Kiosks ───────────────────────────────────────────────────────────────
 
-    public List<pt.ipvc.kiosks.web.dto.KioskDto> getKiosksByStore(Long storeId) {
-        return getList("/api/kiosks?storeId=" + storeId, pt.ipvc.kiosks.web.dto.KioskDto.class);
-    }
-
-    // ── helper ───────────────────────────────────────────────────────────────
-
-    private <T> List<T> getList(String path, Class<T> type) {
-        ResponseEntity<List<T>> resp = rest.exchange(
-                baseUrl + path, HttpMethod.GET, null,
-                new ParameterizedTypeReference<List<T>>() {});
-        return resp.getBody() != null ? resp.getBody() : List.of();
+    public List<KioskDto> getKiosksByStore(Long storeId) {
+        ResponseEntity<List<KioskDto>> r = rest.exchange(
+                baseUrl + "/api/kiosks?storeId=" + storeId,
+                HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<KioskDto>>() {});
+        return r.getBody() != null ? r.getBody() : List.of();
     }
 }
